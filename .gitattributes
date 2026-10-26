@@ -1,0 +1,6 @@
+# 不进安装包的内容：仓库元数据、测试与打包产物。
+/.gitignore      export-ignore
+/.gitattributes  export-ignore
+/LICENSE         export-ignore
+/test/           export-ignore
+/dist/           export-ignore

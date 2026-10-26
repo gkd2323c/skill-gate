@@ -1,0 +1,16 @@
+{
+  "manifestVersion": 2,
+  "id": "skill-gate",
+  "name": "技能门卫",
+  "version": "0.1.2",
+  "description": "调用工具后提醒读取相关 skill；读取或非空声明后停止本轮提醒。",
+  "icon": "assets/icon.svg",
+  "entry": "index.js",
+  "minAppVersion": "1.2.0",
+  "capabilities": [
+    "app/tools.expose-to-model",
+    "app/hooks.agent-before-start",
+    "app/hooks.agent-pre-step",
+    "app/hooks.observe"
+  ]
+}
