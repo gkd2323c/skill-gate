@@ -23,7 +23,15 @@ fs.mkdirSync(outDir, { recursive: true });
 const zipName = `app-${manifest.id}-${manifest.version}.zip`;
 const zipPath = path.join(outDir, zipName);
 
-execFileSync("git", ["archive", `--output=${zipPath}`, "--format=zip", "HEAD"], { cwd: root });
+// 归档字节必须与 CI（Linux）一致，否则本地 dist 的 entry.json 记的 sha256 与 size
+// 指不到线上 Release 附件。两处平台差异都在此固定：
+// ① core.autocrlf=true 会把 CRLF 带进归档（仓库 blob 本身是 LF）；
+// ② zip 头的修改时间按本地时区写入，CI 在 UTC、本机在 UTC+8，同一 tree 打出不同字节。
+execFileSync(
+  "git",
+  ["-c", "core.autocrlf=false", "archive", `--output=${zipPath}`, "--format=zip", "HEAD"],
+  { cwd: root, env: { ...process.env, TZ: "UTC" } }
+);
 
 const bytes = fs.readFileSync(zipPath);
 const sha256 = createHash("sha256").update(bytes).digest("hex");

@@ -77,7 +77,9 @@ node --test './test/app-coexistence.test.mjs'
 
 测试只读宿主产物，从 `bundle/index.js` 提取原始钩子注册器，从 `app-host-entry.js` 提取 RPC 编码表达式；在隔离的 VM 中运行。共存测试加载实际 tuner 源码和本 App 的 SDK 入口，将两者的钩子响应都经过同一编码链，不调用真实宿主或模型、不写生产目录、不启用 App。宿主代码边界变化时测试明确失败，要求重新核对契约。
 
-用官方 `hana-app-creator/scripts/validate_app.mjs` 检查源码与归档，用 `pack_app.mjs` 打包。安装包包含完整运行依赖，安装时无需下载依赖或构建。
+用官方 `hana-app-creator/scripts/validate_app.mjs` 检查源码与归档，用本仓 `scripts/pack.mjs` 打包。安装包包含完整运行依赖，安装时无需下载依赖或构建。
+
+打包产物必须与 CI 产出的字节一致：脚本固定以 `core.autocrlf=false` 归档并把时区置为 UTC。仓库 blob 本身是 LF，Windows 的 `core.autocrlf=true` 会把 CRLF 带进归档；zip 头的修改时间按本地时区写入，两处都会让同一 tree 在 Windows 与 Linux 打出不同字节。本地 `dist/*.entry.json` 的 `archive.sha256` 与 `archive.size` 正是投市场索引要用的值，与线上附件对不上时索引校验会失败。
 
 ### 验证边界
 
