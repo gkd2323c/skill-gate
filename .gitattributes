@@ -1,6 +1,8 @@
-# 不进安装包的内容：仓库元数据、测试与打包产物。
+# 不进安装包的内容：仓库元数据、CI 脚本、测试与打包产物。
 /.gitignore      export-ignore
 /.gitattributes  export-ignore
 /LICENSE         export-ignore
+/.github/        export-ignore
+/scripts/        export-ignore
 /test/           export-ignore
 /dist/           export-ignore
