@@ -52,14 +52,50 @@ test("首次模型请求保持静默；新增工具调用后追加独立末尾�
   assert.equal(history().length, 3);
 });
 
-test("普通文件、recipe、agent 与路径形式的 skill 都继续提醒", () => {
+test("普通文件、recipe、agent 都继续提醒，路径形式的 SKILL.md 按文件名放行", () => {
   for (const input of [
-    { path: "/skills/example/SKILL.md" },
-    { resource: { kind: "local-file", path: "/skills/example/SKILL.md" } },
+    { path: "/skills/example/NOTES.md" },
+    { resource: { kind: "local-file", path: "/skills/example/NOTES.md" } },
+    { resource: { kind: "local-file", path: "/docs/readme.md" } },
     { resource: { kind: "recipe", name: "example" } },
     { resource: { kind: "agent", name: "example" } },
     { resource: { kind: "Skill", name: "example" } },
     {},
+  ]) {
+    const { call, step } = fixture();
+    call("read", input);
+    assert.ok(step(), JSON.stringify(input));
+  }
+});
+
+test("read 到名为 SKILL.md 的文件即放行，无论路径位置或 resource 形态", () => {
+  for (const input of [
+    { path: "/workspace/.agents/skills/term-contract-compiler/SKILL.md" },
+    { path: "/home/user/project/.claude/skills/foo/SKILL.md" },
+    { resource: { kind: "local-file", path: "/workspace/.agents/skills/foo/SKILL.md" } },
+    { resource: { kind: "skill", name: "example" } },
+  ]) {
+    const { call, step } = fixture();
+    call("read", input);
+    assert.equal(step(), undefined, JSON.stringify(input));
+  }
+});
+
+test("大小写不敏感识别 SKILL.md，但普通文件名不放行", () => {
+  for (const input of [
+    { path: "/x/skill.md" },
+    { path: "/x/Skill.MD" },
+    { path: "/x/SKILL.MD" },
+  ]) {
+    const { call, step } = fixture();
+    call("read", input);
+    assert.equal(step(), undefined, JSON.stringify(input));
+  }
+  for (const input of [
+    { path: "/x/SKILL.md.bak" },
+    { path: "/x/SKILL_md" },
+    { path: "/x/MYSKILL.md" },
+    { path: "/x/skills.md" },
   ]) {
     const { call, step } = fixture();
     call("read", input);
@@ -85,6 +121,25 @@ test("延迟工具调用仅认可宿主 core/read 的真实 arguments", () => {
   assert.ok(step());
   call("tool_call", { server: "core", tool: "read", arguments: { resource: { kind: "skill", name: "example" } } });
   assert.equal(step(), undefined);
+});
+
+test("延迟工具调用的文件名判定同样放行工作区 SKILL.md", () => {
+  for (const args of [
+    { path: "/workspace/.agents/skills/foo/SKILL.md" },
+    { resource: { kind: "local-file", path: "/workspace/.agents/skills/foo/SKILL.md" } },
+  ]) {
+    const { call, step } = fixture();
+    call("tool_call", { server: "core", tool: "read", arguments: args });
+    assert.equal(step(), undefined, JSON.stringify(args));
+  }
+  for (const args of [
+    { path: "/workspace/.agents/skills/foo/SKILL.md.bak" },
+    { resource: { kind: "local-file", path: "/x/MYSKILL.md" } },
+  ]) {
+    const { call, step } = fixture();
+    call("tool_call", { server: "core", tool: "read", arguments: args });
+    assert.ok(step(), JSON.stringify(args));
+  }
 });
 
 test("声明非空后停止；理由语义不由代码判断", () => {

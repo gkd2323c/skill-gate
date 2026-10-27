@@ -14,7 +14,12 @@
 
 **2. 「读过 skill」的判定**
 
-以 read 工具的入参为准：`resource.kind === "skill"`。读普通文件、读 recipe、读 agent 都不算。
+以 read 工具的入参为准，满足任一即算：
+
+- `resource.kind === "skill"`；
+- 目标路径（`path`、`resource.path` 或 `fileId`）的文件名为 `SKILL.md`，大小写不敏感。
+
+读 recipe、读 agent 都不算读取 skill。
 
 **3. 「声明」的出口**
 
