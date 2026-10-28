@@ -289,3 +289,35 @@ test("提醒文案携带声明理由约束，禁止把熟悉或简单当理由",
     assert.ok(REMINDER_TEXT.includes(required));
   }
 });
+
+test("宿主以 input 字段传参时同样识别 skill 读取", () => {
+  const gate = createSkillGate();
+  const history = [userMessage];
+  gate.beginTurn({ session });
+  gate.beforeStep({ session, messages: history });
+  history.push(
+    { role: "assistant", content: [
+      { type: "toolCall", id: "input-1", name: "read", input: { path: "/x/skills/foo/SKILL.md" } },
+    ] },
+    { role: "toolResult", toolCallId: "input-1", content: [] },
+  );
+  assert.equal(gate.beforeStep({ session, messages: history }), undefined);
+});
+
+test("并行批次中只要有一个 skill 读取即放行本轮", () => {
+  const gate = createSkillGate();
+  const history = [userMessage];
+  gate.beginTurn({ session });
+  gate.beforeStep({ session, messages: history });
+  history.push(
+    { role: "assistant", content: [
+      { type: "toolCall", id: "par-1", name: "read", arguments: { path: "/x/AGENTS.md" } },
+      { type: "toolCall", id: "par-2", name: "read", arguments: { path: "/x/skills/gh/SKILL.md" } },
+      { type: "toolCall", id: "par-3", name: "exec_command", arguments: { cmd: "ls" } },
+    ] },
+    { role: "toolResult", toolCallId: "par-1", content: [] },
+    { role: "toolResult", toolCallId: "par-2", content: [] },
+    { role: "toolResult", toolCallId: "par-3", content: [] },
+  );
+  assert.equal(gate.beforeStep({ session, messages: history }), undefined);
+});
