@@ -358,3 +358,36 @@ test("并行批次中只要有一个 skill 读取即放行本轮", () => {
   );
   assert.equal(gate.beforeStep({ session, messages: history }), undefined);
 });
+
+test("宿主每步重置状态时，本轮已读的 skill 仍能放行", () => {
+  const gate = createSkillGate();
+  const history = [{ role: "user", content: "任务", timestamp: 1 }];
+  gate.beginTurn({ session });
+  gate.beforeStep({ session, messages: history });
+  history.push(
+    { role: "assistant", content: [{ type: "toolCall", id: "k-1", name: "read", arguments: { path: "/x/SKILL.md" } }] },
+    { role: "toolResult", toolCallId: "k-1", content: [] },
+  );
+  // 每个模型请求前都触发 before-start 重置
+  gate.beginTurn({ session });
+  assert.equal(gate.beforeStep({ session, messages: history }), undefined);
+  history.push(
+    { role: "assistant", content: [{ type: "toolCall", id: "k-2", name: "exec_command", arguments: { cmd: "ls" } }] },
+    { role: "toolResult", toolCallId: "k-2", content: [] },
+  );
+  gate.beginTurn({ session });
+  assert.equal(gate.beforeStep({ session, messages: history }), undefined);
+});
+
+test("宿主每步重置时，未读 skill 仍会提醒", () => {
+  const gate = createSkillGate();
+  const history = [
+    { role: "user", content: "任务", timestamp: 1 },
+    { role: "assistant", content: [{ type: "toolCall", id: "n-1", name: "ls", arguments: {} }] },
+    { role: "toolResult", toolCallId: "n-1", content: [] },
+  ];
+  gate.beginTurn({ session });
+  gate.beforeStep({ session, messages: history });
+  gate.beginTurn({ session });
+  assert.ok(gate.beforeStep({ session, messages: history }));
+});
