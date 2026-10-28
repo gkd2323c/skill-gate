@@ -2,7 +2,7 @@ import { defineApp } from "./sdk/app-contract/server-client.js";
 import { createSkillGate } from "./lib/gate-core.js";
 
 export default defineApp(async (sdk) => {
-  const gate = createSkillGate({ dataDir: sdk.dataDir });
+  const gate = createSkillGate();
 
   await sdk.tools.register({
     name: "skill_gate_declare",

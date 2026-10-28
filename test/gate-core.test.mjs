@@ -206,6 +206,9 @@ test("新轮次首步将历史调用设为基线，旧 skill 和提醒不影响�
   gate.declare({ reason: "无相关技能", context: session });
   assert.deepEqual(begin(session, reminded).messages, history().filter((m) => m.customType !== REMINDER_TYPE));
   assert.equal(step(), undefined);
+  // 声明只由真实的新用户发言失效：追加一条用户消息后再调用工具才重新提醒
+  const nextTurn = [...history().filter((m) => m.customType !== REMINDER_TYPE), { role: "user", content: "再下一任务", timestamp: 20 }];
+  begin(session, nextTurn);
   call();
   assert.ok(step());
 });
@@ -239,14 +242,15 @@ test("缺少会话身份时不串入全局状态，不出现工具异常", () =>
   assert.ok(step());
 });
 
-test("无路径时按会话 ID 隔离，关闭后重新建立调用基线", () => {
+test("无路径时按会话 ID 隔离，关闭后重建不串状态", () => {
   const { gate, begin, call, step, history } = fixture();
   const idOnly = { sessionId: "id-only" };
   begin(idOnly);
   call("ls", {}, idOnly);
   assert.ok(step(idOnly));
   gate.closeSession({ session: idOnly });
-  assert.equal(gate.beforeStep({ session: idOnly, messages: history(idOnly) }), undefined);
+  // 关闭后重建：窗口内已有调用仍按本轮计，未读 skill 即提醒
+  assert.ok(gate.beforeStep({ session: idOnly, messages: history(idOnly) }));
   gate.closeSession();
 });
 
@@ -262,7 +266,7 @@ test("取消及非法消息入参不建立基线、不改变状态", () => {
   assert.ok(step());
 });
 
-test("压缩后保留状态，旧调用重放不放行新轮次，新增调用仍可识别", () => {
+test("压缩后保留状态：位置在用户消息之后的读取计入本轮，新增调用不放行已读本轮", () => {
   const { begin, call, step, history } = fixture();
   call("read", { resource: { kind: "skill" } });
   const oldRead = history()[1];
@@ -271,7 +275,40 @@ test("压缩后保留状态，旧调用重放不放行新轮次，新增调用�
   begin(session, [userMessage, oldRead]);
   assert.equal(step(session, [userMessage, oldRead]), undefined);
   call();
-  assert.ok(step());
+  // 旧读取位于本次用户发言之后，按位置属于本轮，因此新增工具调用仍放行
+  assert.equal(step(), undefined);
+});
+
+test("新的用户消息之后，上一轮的 skill 读取不再放行", () => {
+  const gate = createSkillGate();
+  const firstUser = { role: "user", content: "第一任务", timestamp: 1 };
+  const history = [firstUser];
+  gate.beginTurn({ session });
+  gate.beforeStep({ session, messages: history });
+  history.push(
+    { role: "assistant", content: [{ type: "toolCall", id: "r-1", name: "read", arguments: { path: "/x/SKILL.md" } }] },
+    { role: "toolResult", toolCallId: "r-1", content: [] },
+  );
+  assert.equal(gate.beforeStep({ session, messages: history }), undefined);
+  history.push(
+    { role: "user", content: "第二任务", timestamp: 10 },
+    { role: "assistant", content: [{ type: "toolCall", id: "c-2", name: "ls", arguments: {} }] },
+    { role: "toolResult", toolCallId: "c-2", content: [] },
+  );
+  assert.ok(gate.beforeStep({ session, messages: history }));
+});
+
+test("注入的提醒被宿主回灌为 user 消息时不触发新一轮", () => {
+  const gate = createSkillGate();
+  const history = [{ role: "user", content: "任务", timestamp: 1 }];
+  gate.beginTurn({ session });
+  gate.beforeStep({ session, messages: history });
+  history.push(
+    { role: "assistant", content: [{ type: "toolCall", id: "e-1", name: "read", arguments: { path: "/x/SKILL.md" } }] },
+    { role: "toolResult", toolCallId: "e-1", content: [] },
+    { role: "user", content: REMINDER_TEXT, timestamp: 2 },
+  );
+  assert.equal(gate.beforeStep({ session, messages: history }), undefined);
 });
 
 test("只剩工具结果时仍提醒；结果正文和自定义消息不能伪造 skill 读取", () => {
